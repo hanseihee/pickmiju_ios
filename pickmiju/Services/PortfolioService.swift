@@ -102,8 +102,15 @@ final class PortfolioService {
     func calculateSummary(prices: [String: StockPrice]) -> PortfolioSummaryData {
         guard !lots.isEmpty else { return .empty }
 
-        // Group lots by symbol
-        let grouped = Dictionary(grouping: lots, by: \.symbol)
+        // Group lots by symbol, preserving insertion order from Supabase
+        var orderedSymbols: [String] = []
+        var grouped: [String: [StockLot]] = [:]
+        for lot in lots {
+            if grouped[lot.symbol] == nil {
+                orderedSymbols.append(lot.symbol)
+            }
+            grouped[lot.symbol, default: []].append(lot)
+        }
 
         var holdings: [StockHolding] = []
         var totalInvested: Double = 0
@@ -111,7 +118,8 @@ final class PortfolioService {
         var todayGain: Double = 0
         var previousTotalValue: Double = 0
 
-        for (symbol, symbolLots) in grouped {
+        for symbol in orderedSymbols {
+            let symbolLots = grouped[symbol]!
             let currentPrice = prices[symbol]?.price ?? 0
             let previousClose = prices[symbol]?.previousClose ?? 0
             let change = prices[symbol]?.change ?? 0
@@ -146,8 +154,7 @@ final class PortfolioService {
             previousTotalValue += previousClose * shares
         }
 
-        // Sort by total value descending
-        holdings.sort { $0.totalValue > $1.totalValue }
+        // Supabase 등록 순서 유지 (orderedSymbols 순서 그대로)
 
         let totalGain = totalValue - totalInvested
         let totalGainPercent = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0

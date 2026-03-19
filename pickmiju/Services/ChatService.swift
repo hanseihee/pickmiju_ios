@@ -48,7 +48,7 @@ final class ChatService {
             }
         } catch {
             // No existing record — keep current local nickname and register it
-            try? await supabase
+            _ = try? await supabase
                 .from("chat_users")
                 .upsert([
                     "user_hash": deviceId,
@@ -66,8 +66,8 @@ final class ChatService {
         Task {
             await loadNicknameFromServer()
             await fetchMessages()
-            await subscribeToMessages()
-            await subscribeToPresence()
+            try? await subscribeToMessages()
+            try? await subscribeToPresence()
         }
     }
 
@@ -85,6 +85,19 @@ final class ChatService {
         }
         channel = nil
         presenceChannel = nil
+    }
+
+    // MARK: - Lifecycle
+
+    func onEnterForeground() {
+        guard channel != nil else { return }
+        // 백그라운드 동안 놓친 메시지를 다시 가져오고 채널 재구독
+        disconnect()
+        Task {
+            await fetchMessages()
+            try? await subscribeToMessages()
+            try? await subscribeToPresence()
+        }
     }
 
     // MARK: - Fetch Messages
@@ -113,6 +126,17 @@ final class ChatService {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        // 낙관적 추가 — 서버 응답 전에 즉시 표시
+        let optimisticId = UUID().uuidString
+        let optimistic = ChatMessage(
+            id: optimisticId,
+            nickname: nickname,
+            message: trimmed,
+            created_at: ISO8601DateFormatter().string(from: Date()),
+            user_hash: deviceId
+        )
+        messages.append(optimistic)
+
         let payload: [String: String] = [
             "nickname": nickname,
             "message": trimmed,
@@ -125,13 +149,15 @@ final class ChatService {
                 .insert(payload)
                 .execute()
         } catch {
+            // 전송 실패 시 낙관적 메시지 제거
+            messages.removeAll { $0.id == optimisticId }
             print("[Chat] Send error: \(error)")
         }
     }
 
     // MARK: - Realtime Subscription
 
-    private func subscribeToMessages() async {
+    private func subscribeToMessages() async throws {
         let ch = supabase.realtimeV2.channel("chat_messages_ios")
 
         let insertions = ch.postgresChange(
@@ -140,7 +166,7 @@ final class ChatService {
             table: "chat_messages"
         )
 
-        await ch.subscribe()
+        try await ch.subscribeWithError()
         channel = ch
 
         listenTask = Task {
@@ -148,7 +174,20 @@ final class ChatService {
                 guard !Task.isCancelled else { break }
                 do {
                     let msg = try insertion.decodeRecord(as: ChatMessage.self, decoder: JSONDecoder())
-                    messages.append(msg)
+
+                    // 내가 보낸 메시지는 이미 낙관적으로 추가됨 — 중복 방지
+                    if msg.user_hash == deviceId && messages.contains(where: {
+                        $0.user_hash == deviceId && $0.message == msg.message
+                    }) {
+                        // 낙관적 메시지를 서버 메시지로 교체 (실제 id/timestamp 반영)
+                        if let idx = messages.lastIndex(where: {
+                            $0.user_hash == deviceId && $0.message == msg.message
+                        }) {
+                            messages[idx] = msg
+                        }
+                    } else {
+                        messages.append(msg)
+                    }
 
                     if !isVisible && msg.user_hash != deviceId {
                         unreadCount += 1
@@ -165,7 +204,7 @@ final class ChatService {
     /// Tracks known presence keys to count online users
     private var presenceKeys: Set<String> = []
 
-    private func subscribeToPresence() async {
+    private func subscribeToPresence() async throws {
         // Use same channel name as web ("chat_presence") to share presence state
         let myDeviceId = deviceId
         let ch = supabase.realtimeV2.channel("chat_presence") {
@@ -175,16 +214,18 @@ final class ChatService {
         // joins/leaves give us who joined and left
         presenceSubscription = ch.onPresenceChange { [weak self] (action: any PresenceAction) in
             guard let self else { return }
-            for key in action.joins.keys {
-                self.presenceKeys.insert(key)
+            Task { @MainActor in
+                for key in action.joins.keys {
+                    self.presenceKeys.insert(key)
+                }
+                for key in action.leaves.keys {
+                    self.presenceKeys.remove(key)
+                }
+                self.onlineCount = max(1, self.presenceKeys.count)
             }
-            for key in action.leaves.keys {
-                self.presenceKeys.remove(key)
-            }
-            self.onlineCount = max(1, self.presenceKeys.count)
         }
 
-        await ch.subscribe()
+        try await ch.subscribeWithError()
         presenceChannel = ch
 
         // Track self

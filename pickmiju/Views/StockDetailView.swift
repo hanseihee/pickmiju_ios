@@ -68,21 +68,21 @@ struct StockDetailView: View {
             }
             .padding(.horizontal)
 
-            // Price
+            // Price — 항상 정규장 가격 표시
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(displayPrice(data.price))
+                Text(displayPrice(data.regularMarketPrice != 0 ? data.regularMarketPrice : data.price))
                     .font(.system(size: 36, weight: .bold, design: .monospaced))
                     .contentTransition(.numericText())
 
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(displayChangeAmount(data.change))
+                    Text(displayChangeAmount(data.regularMarketChange))
                         .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    Text(formatChangePercent(data.changePercent))
+                    Text(formatChangePercent(data.regularMarketChangePercent))
                         .font(.system(size: 15, weight: .semibold, design: .monospaced))
                 }
-                .foregroundStyle(changeColor(data.changePercent))
+                .foregroundStyle(changeColor(data.regularMarketChangePercent))
             }
             .padding(.horizontal)
 

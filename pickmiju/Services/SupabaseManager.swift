@@ -12,6 +12,9 @@ let supabase = SupabaseClient(
     supabaseURL: SupabaseConfig.url,
     supabaseKey: SupabaseConfig.anonKey,
     options: .init(
-        auth: .init(redirectToURL: SupabaseConfig.redirectURL)
+        auth: .init(
+            redirectToURL: SupabaseConfig.redirectURL,
+            emitLocalSessionAsInitialSession: true
+        )
     )
 )

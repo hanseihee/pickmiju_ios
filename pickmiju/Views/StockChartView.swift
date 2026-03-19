@@ -71,10 +71,15 @@ struct StockChartView: View {
                 HStack(spacing: 8) {
                     Text(formatChartPrice(selected.close))
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(lineColor)
                     Text(selected.time, style: .date)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
             }
         }
     }

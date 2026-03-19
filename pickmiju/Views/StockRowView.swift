@@ -9,13 +9,22 @@ struct StockRowView: View {
 
     private var isForex: Bool { stock.id == "KRW=X" }
 
-    // Display price in selected currency
-    private var displayPrice: Double {
-        isKRW && !isForex && krwRate > 0 ? stock.price * krwRate : stock.price
+    // 메인 행: 항상 정규장 가격 표시
+    private var regularPrice: Double {
+        let base = stock.regularMarketPrice != 0 ? stock.regularMarketPrice : stock.price
+        return isKRW && !isForex && krwRate > 0 ? base * krwRate : base
     }
 
-    private var displayChange: Double {
-        isKRW && !isForex && krwRate > 0 ? stock.change * krwRate : stock.change
+    private var extendedLabel: String {
+        switch stock.marketHours {
+        case 0: return "프리"
+        case 2: return "애프터"
+        default: return "시간외"
+        }
+    }
+
+    private var showExtended: Bool {
+        stock.isExtendedHours && stock.hasExtendedHoursData
     }
 
     var body: some View {
@@ -33,23 +42,44 @@ struct StockRowView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Column 2: Price
-            Text(formatDisplayPrice(displayPrice))
-                .font(.system(size: 15, weight: .bold, design: .monospaced))
-                .foregroundStyle(.primary)
-                .contentTransition(.numericText())
-                .frame(width: 115, alignment: .trailing)
+            // Column 2: Price (정규장 + 시간외)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(formatDisplayPrice(regularPrice))
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .contentTransition(.numericText())
 
-            // Column 3: Change badge
-            HStack {
-                Spacer()
-                Text(formatChangePercent(stock.changePercent))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(changeBgColor(stock.changePercent))
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                if showExtended {
+                    Text(formatExtendedPrice(stock.extendedHoursPrice))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(changeTextColor(stock.extendedHoursChangePercent))
+                }
+            }
+            .frame(width: 115, alignment: .trailing)
+
+            // Column 3: Change badge (정규장 + 시간외)
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack {
+                    Spacer()
+                    Text(formatChangePercent(stock.regularMarketChangePercent))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(changeBgColor(stock.regularMarketChangePercent))
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+
+                if showExtended {
+                    HStack(spacing: 2) {
+                        Text(extendedLabel)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(extendedLabelColor)
+                        Text(formatChangePercent(stock.extendedHoursChangePercent))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(changeTextColor(stock.extendedHoursChangePercent))
+                    }
+                }
             }
             .frame(width: 90)
         }
@@ -91,5 +121,33 @@ struct StockRowView: View {
         if value > 0 { return .green }
         if value < 0 { return .red }
         return .gray
+    }
+
+    private func changeTextColor(_ value: Double) -> Color {
+        if value > 0 { return .green }
+        if value < 0 { return .red }
+        return .secondary
+    }
+
+    private var extendedLabelColor: Color {
+        switch stock.marketHours {
+        case 0: return .cyan
+        case 2: return .purple
+        default: return .secondary
+        }
+    }
+
+    private func formatExtendedPrice(_ price: Double) -> String {
+        guard price != 0 else { return "-" }
+        if isKRW && !isForex && krwRate > 0 {
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.maximumFractionDigits = 0
+            return "₩\(formatter.string(from: NSNumber(value: price * krwRate)) ?? "0")"
+        }
+        let hint = stock.priceHint
+        if price >= 1000 { return String(format: "%.\(min(hint, 2))f", price) }
+        if price >= 1 { return String(format: "%.\(hint)f", price) }
+        return String(format: "%.4f", price)
     }
 }

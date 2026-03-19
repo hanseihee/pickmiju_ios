@@ -241,45 +241,54 @@ struct PortfolioView: View {
     private func holdingRow(_ holding: StockHolding) -> some View {
         VStack(spacing: 0) {
             // Main row
-            Button {
-                withAnimation {
+            HStack(spacing: 0) {
+                // Symbol & shares
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(holding.symbol)
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                    Text("\(formatShares(holding.totalShares))주 · 평균 \(formatUSD(holding.averageCost))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .animation(nil, value: expandedSymbol)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Value, gain amount & percent badge
+                VStack(alignment: .trailing, spacing: 3) {
+                    Text(displayAmount(holding.totalValue))
+                        .font(.system(size: 15, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+
+                    Text(displayChange(holding.totalGain))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(changeColor(holding.totalGain))
+
+                    Text(formatPercent(holding.totalGainPercent))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(changeBgColor(holding.totalGain))
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+                .animation(nil, value: expandedSymbol)
+
+                // 펼침/접힘 표시
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .rotationEffect(.degrees(expandedSymbol == holding.symbol ? 90 : 0))
+                    .animation(.easeInOut(duration: 0.2), value: expandedSymbol)
+                    .padding(.leading, 8)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) {
                     expandedSymbol = expandedSymbol == holding.symbol ? nil : holding.symbol
                 }
-            } label: {
-                HStack(spacing: 0) {
-                    // Symbol & shares
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(holding.symbol)
-                            .font(.system(size: 15, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.primary)
-                        Text("\(formatShares(holding.totalShares))주 · 평균 \(formatUSD(holding.averageCost))")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // Value, gain amount & percent badge
-                    VStack(alignment: .trailing, spacing: 3) {
-                        Text(displayAmount(holding.totalValue))
-                            .font(.system(size: 15, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.primary)
-
-                        Text(displayChange(holding.totalGain))
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(changeColor(holding.totalGain))
-
-                        Text(formatPercent(holding.totalGainPercent))
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(changeBgColor(holding.totalGain))
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
-                    }
-                }
-                .padding(.vertical, 4)
             }
-            .buttonStyle(.plain)
 
             // Expanded: lot details
             if expandedSymbol == holding.symbol {
@@ -335,7 +344,7 @@ struct PortfolioView: View {
             }
         }
         .padding(.leading, 4)
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(.opacity)
     }
 
     // MARK: - Empty States

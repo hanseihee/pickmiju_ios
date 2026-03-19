@@ -8,6 +8,9 @@ final class StockListViewModel {
     var errorMessage: String?
     var isEditMode = false
 
+    /// 포트폴리오 전용 심볼 — MainTabView에서 설정
+    var portfolioSymbols: [String] = []
+
     let watchlist: WatchlistStore
     let webSocket = YahooWebSocketService()
     private let api = StockAPIService.shared
@@ -24,6 +27,15 @@ final class StockListViewModel {
     }
 
     // MARK: - Computed Properties
+
+    /// 관심종목 + 포트폴리오 + 필수 지수를 모두 합친 전체 심볼 목록
+    private var allSymbols: [String] {
+        var symbols = watchlist.allTickers
+        for s in portfolioSymbols where !symbols.contains(s) {
+            symbols.append(s)
+        }
+        return symbols
+    }
 
     /// Ordered stock list based on watchlist order
     var stockList: [StockPrice] {
@@ -42,15 +54,15 @@ final class StockListViewModel {
         isLoading = true
         errorMessage = nil
 
-        let allSymbols = watchlist.allTickers
+        let symbols = allSymbols
 
         do {
-            let stockPrices = try await api.fetchQuotes(symbols: allSymbols)
+            let stockPrices = try await api.fetchQuotes(symbols: symbols)
             let priceMap = Dictionary(uniqueKeysWithValues: stockPrices.map { ($0.id, $0) })
 
             webSocket.setInitialPrices(priceMap)
             quotes = webSocket.prices
-            webSocket.subscribe(allSymbols)
+            webSocket.subscribe(symbols)
             isSubscribed = true
             isLoading = false
         } catch {
@@ -58,7 +70,7 @@ final class StockListViewModel {
             isLoading = false
 
             if case StockAPIError.unauthorized = error {
-                await retryAfterAuth(symbols: allSymbols)
+                await retryAfterAuth(symbols: symbols)
             }
         }
     }
@@ -67,10 +79,10 @@ final class StockListViewModel {
         guard !isLoading else { return }
         errorMessage = nil
 
-        let allSymbols = watchlist.allTickers
+        let symbols = allSymbols
 
         do {
-            let stockPrices = try await api.fetchQuotes(symbols: allSymbols)
+            let stockPrices = try await api.fetchQuotes(symbols: symbols)
             let priceMap = Dictionary(uniqueKeysWithValues: stockPrices.map { ($0.id, $0) })
 
             webSocket.setInitialPrices(priceMap)
@@ -99,7 +111,6 @@ final class StockListViewModel {
         watchlist.addTicker(symbol)
         webSocket.subscribe([symbol.uppercased()])
 
-        // Cancel previous add-ticker fetch if still in-flight
         addTickerTask?.cancel()
         addTickerTask = Task {
             do {
@@ -108,9 +119,7 @@ final class StockListViewModel {
                 let priceMap = Dictionary(uniqueKeysWithValues: stockPrices.map { ($0.id, $0) })
                 webSocket.setInitialPrices(priceMap)
                 quotes = webSocket.prices
-            } catch {
-                // WebSocket will pick up data eventually
-            }
+            } catch {}
         }
     }
 
@@ -121,6 +130,22 @@ final class StockListViewModel {
 
     func moveTickers(from source: IndexSet, to destination: Int) {
         watchlist.reorderTickers(from: source, to: destination)
+    }
+
+    // MARK: - Reload
+
+    /// 관심종목 또는 포트폴리오 변경 시 전체 심볼 다시 로드
+    func reloadAllSymbols() {
+        let symbols = allSymbols
+        webSocket.subscribe(symbols)
+        Task {
+            do {
+                let stockPrices = try await api.fetchQuotes(symbols: symbols)
+                let priceMap = Dictionary(uniqueKeysWithValues: stockPrices.map { ($0.id, $0) })
+                webSocket.setInitialPrices(priceMap)
+                quotes = webSocket.prices
+            } catch {}
+        }
     }
 
     // MARK: - Lifecycle

@@ -33,7 +33,7 @@ enum ChartRange: String, CaseIterable {
         }
     }
 
-    var interval: String {
+    nonisolated var interval: String {
         switch self {
         case .oneDay: return "5m"
         case .fiveDay: return "15m"

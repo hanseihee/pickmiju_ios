@@ -1,10 +1,13 @@
 import SwiftUI
+import Combine
 
 struct StockListView: View {
     @State var viewModel: StockListViewModel
     let settings: AppSettings
     @State private var showSearch = false
+    @State private var marketInfo = MarketInfo.current()
     @Environment(\.scenePhase) private var scenePhase
+    private let marketTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         NavigationStack {
@@ -23,7 +26,15 @@ struct StockListView: View {
             .toolbarBackgroundVisibility(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    wsStatusIndicator
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(marketInfo.color)
+                            .frame(width: 7, height: 7)
+                        Text(marketInfo.label)
+                            .font(.system(size: 11))
+                            .foregroundStyle(marketInfo.color)
+                            .fixedSize()
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
@@ -67,6 +78,9 @@ struct StockListView: View {
             .onAppear {
                 viewModel.onAppear()
             }
+            .onReceive(marketTimer) { _ in
+                marketInfo = MarketInfo.current()
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 switch newPhase {
                 case .active:
@@ -84,8 +98,22 @@ struct StockListView: View {
 
     private var stockListContent: some View {
         List {
-            // Market indices — horizontal swipeable cards (pinned in list)
+            // Market status countdown + indices
             Section {
+                HStack {
+                    Spacer()
+                    Text("\(marketInfo.nextEventLabel)까지")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Text(marketInfo.countdown)
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .contentTransition(.numericText())
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+
                 indicesCarousel
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
@@ -136,43 +164,14 @@ struct StockListView: View {
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(indices) { stock in
-                    IndexCardView(stock: stock)
+                    NavigationLink(value: stock) {
+                        IndexCardView(stock: stock)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-        }
-    }
-
-    // MARK: - WebSocket Status Indicator
-
-    private var wsStatusIndicator: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(wsStatusColor)
-                .frame(width: 7, height: 7)
-            Text(wsStatusText)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .fixedSize()
-        }
-    }
-
-    private var wsStatusColor: Color {
-        switch viewModel.webSocket.status {
-        case .connected: return .green
-        case .connecting: return .yellow
-        case .disconnected: return .gray
-        case .error: return .red
-        }
-    }
-
-    private var wsStatusText: String {
-        switch viewModel.webSocket.status {
-        case .connected: return "실시간"
-        case .connecting: return "연결중"
-        case .disconnected: return "연결끊김"
-        case .error: return "오류"
         }
     }
 
