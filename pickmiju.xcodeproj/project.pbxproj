@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		B57CE1662F6AEE7B00722C33 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = C10A00012F6BE00000000001 /* Supabase */; };
+		C10A00022F6BE00000000002 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = C10A00012F6BE00000000002 /* FirebaseCore */; };
+		C10A00022F6BE00000000003 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = C10A00012F6BE00000000003 /* FirebaseAnalytics */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,6 +59,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				B57CE1662F6AEE7B00722C33 /* Supabase in Frameworks */,
+				C10A00022F6BE00000000002 /* FirebaseCore in Frameworks */,
+				C10A00022F6BE00000000003 /* FirebaseAnalytics in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +122,8 @@
 			name = pickmiju;
 			packageProductDependencies = (
 				C10A00012F6BE00000000001 /* Supabase */,
+				C10A00012F6BE00000000002 /* FirebaseCore */,
+				C10A00012F6BE00000000003 /* FirebaseAnalytics */,
 			);
 			productName = pickmiju;
 			productReference = B57CE0BE2F6ADD2C00722C33 /* pickmiju.app */;
@@ -203,6 +209,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				C10A00002F6BE00000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				C10A00002F6BE00000000002 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B57CE0BF2F6ADD2C00722C33 /* Products */;
@@ -417,6 +424,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -452,6 +460,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -603,6 +612,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		C10A00002F6BE00000000002 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -610,6 +627,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C10A00002F6BE00000000001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		C10A00012F6BE00000000002 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C10A00002F6BE00000000002 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		C10A00012F6BE00000000003 /* FirebaseAnalytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C10A00002F6BE00000000002 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAnalytics;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
