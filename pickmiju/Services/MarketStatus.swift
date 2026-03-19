@@ -7,6 +7,11 @@ struct MarketInfo {
     let nextEventLabel: String
     let countdown: String
 
+    /// 정규장 여부 (API 데이터 없을 때 로컬 시간 기반 fallback)
+    var isRegularMarket: Bool {
+        label == "정규장"
+    }
+
     // US Market Hours (Eastern Time)
     // 프리마켓: 04:00-09:30 ET
     // 정규장:   09:30-16:00 ET

@@ -98,22 +98,8 @@ struct StockListView: View {
 
     private var stockListContent: some View {
         List {
-            // Market status countdown + indices
+            // Market status + indices
             Section {
-                HStack {
-                    Spacer()
-                    Text("\(marketInfo.nextEventLabel)까지")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                    Text(marketInfo.countdown)
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .contentTransition(.numericText())
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-
                 indicesCarousel
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
@@ -158,20 +144,60 @@ struct StockListView: View {
 
     // MARK: - Indices Carousel
 
+    /// 정규장: 현물 지수(^GSPC, ^IXIC, ^DJI) / 비정규장: 선물(ES=F, NQ=F, YM=F)
     private var indicesCarousel: some View {
-        let indices = WatchlistStore.requiredTickers.compactMap { viewModel.quotes[$0] }
+        // API 데이터 우선, 없으면 로컬 시간 기반 fallback
+        let isRegular: Bool = {
+            if let gspc = viewModel.quotes["^GSPC"] {
+                return gspc.marketHours == 1
+            }
+            return marketInfo.isRegularMarket
+        }()
 
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(indices) { stock in
-                    NavigationLink(value: stock) {
-                        IndexCardView(stock: stock)
-                    }
-                    .buttonStyle(.plain)
-                }
+        let marketTickers = isRegular
+            ? WatchlistStore.indexTickers
+            : WatchlistStore.futuresTickers
+        var displayStocks: [StockPrice] = []
+        if let krw = viewModel.quotes["KRW=X"] {
+            displayStocks.append(krw)
+        }
+        displayStocks += marketTickers.compactMap { viewModel.quotes[$0] }
+
+        return VStack(alignment: .leading, spacing: 4) {
+            // 배지 + 카운트다운 한 줄
+            HStack {
+                Text(isRegular ? "지수" : "선물")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(isRegular ? Color.green : Color.orange)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                Spacer()
+
+                Text("\(marketInfo.nextEventLabel)까지")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Text(marketInfo.countdown)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.top, 8)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(displayStocks) { stock in
+                        NavigationLink(value: stock) {
+                            IndexCardView(stock: stock)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
         }
     }
 
@@ -246,6 +272,9 @@ private struct IndexCardView: View {
         case "^GSPC": return "S&P 500"
         case "^IXIC": return "NASDAQ"
         case "^DJI": return "DOW"
+        case "ES=F": return "S&P 500"
+        case "NQ=F": return "NASDAQ"
+        case "YM=F": return "DOW"
         case "KRW=X": return "USD/KRW"
         default: return stock.shortName
         }

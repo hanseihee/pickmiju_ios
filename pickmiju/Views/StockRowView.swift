@@ -29,6 +29,16 @@ struct StockRowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            // Column 0: Mini 1-day candle
+            MiniCandleView(
+                open: stock.openPrice,
+                high: stock.dayHigh,
+                low: stock.dayLow,
+                close: stock.regularMarketPrice != 0 ? stock.regularMarketPrice : stock.price
+            )
+            .frame(width: 14, height: 32)
+            .padding(.trailing, 8)
+
             // Column 1: Ticker & Name
             VStack(alignment: .leading, spacing: 3) {
                 Text(stock.id)

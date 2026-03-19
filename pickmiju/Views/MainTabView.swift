@@ -25,21 +25,18 @@ struct MainTabView: View {
                 StockListView(viewModel: viewModel, settings: settings)
             }
 
-            Tab("뉴스", systemImage: "newspaper", value: 1) {
-                NewsListView()
-            }
-
-            Tab("포트폴리오", systemImage: "chart.pie", value: 2) {
+            Tab("포트폴리오", systemImage: "chart.pie", value: 1) {
                 PortfolioView(
                     portfolioService: portfolioService,
                     authService: authService,
                     prices: viewModel.quotes,
                     krwRate: viewModel.krwRate,
+                    watchlistOrder: watchlist.tickers,
                     settings: settings
                 )
             }
 
-            Tab(value: 3) {
+            Tab(value: 2) {
                 ChatView(chatService: chatService)
             } label: {
                 Label {
@@ -48,6 +45,10 @@ struct MainTabView: View {
                     Image(systemName: "bubble.left.and.bubble.right")
                 }
                 .badge(chatService.unreadCount)
+            }
+
+            Tab("뉴스", systemImage: "newspaper", value: 3) {
+                NewsListView()
             }
 
             Tab("설정", systemImage: "gearshape", value: 4) {
@@ -84,7 +85,7 @@ struct MainTabView: View {
             }
         }
         .onChange(of: selectedTab) { _, newTab in
-            if newTab == 3 {
+            if newTab == 2 {
                 chatService.clearUnread()
             }
         }
@@ -128,7 +129,13 @@ private struct SettingsView: View {
                     HStack {
                         Text("버전")
                         Spacer()
-                        Text("1.0.0")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-")
+                            .foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Text("빌드")
+                        Spacer()
+                        Text(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "-")
                             .foregroundStyle(.secondary)
                     }
                 }

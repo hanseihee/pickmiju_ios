@@ -5,6 +5,7 @@ struct PortfolioView: View {
     let authService: AuthService
     let prices: [String: StockPrice]
     let krwRate: Double
+    let watchlistOrder: [String]
 
     let settings: AppSettings
 
@@ -13,7 +14,7 @@ struct PortfolioView: View {
     @State private var lotToDelete: StockLotWithGains?
 
     private var summary: PortfolioSummaryData {
-        portfolioService.calculateSummary(prices: prices)
+        portfolioService.calculateSummary(prices: prices, watchlistOrder: watchlistOrder)
     }
 
     var body: some View {
@@ -73,6 +74,7 @@ struct PortfolioView: View {
                 summaryCard
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
 
             // Allocation chart
@@ -81,10 +83,11 @@ struct PortfolioView: View {
                     allocationChart
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 } header: {
                     Text("자산 비중")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -92,16 +95,17 @@ struct PortfolioView: View {
             Section {
                 ForEach(summary.holdings) { holding in
                     holdingRow(holding)
+                        .listRowSeparator(.hidden)
                 }
             } header: {
                 HStack {
                     Text("보유 종목")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 12, weight: .semibold))
                     Spacer()
                     Text("\(summary.holdings.count)개")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                 }
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
             }
         }
         .listStyle(.plain)
@@ -239,7 +243,9 @@ struct PortfolioView: View {
     // MARK: - Holding Row
 
     private func holdingRow(_ holding: StockHolding) -> some View {
-        VStack(spacing: 0) {
+        let isExpanded = expandedSymbol == holding.symbol
+
+        return VStack(spacing: 0) {
             // Main row
             HStack(spacing: 0) {
                 // Symbol & shares
@@ -251,7 +257,6 @@ struct PortfolioView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
-                .animation(nil, value: expandedSymbol)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Value, gain amount & percent badge
@@ -272,26 +277,26 @@ struct PortfolioView: View {
                         .background(changeBgColor(holding.totalGain))
                         .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
-                .animation(nil, value: expandedSymbol)
 
                 // 펼침/접힘 표시
-                Image(systemName: "chevron.right")
+                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.tertiary)
-                    .rotationEffect(.degrees(expandedSymbol == holding.symbol ? 90 : 0))
-                    .animation(.easeInOut(duration: 0.2), value: expandedSymbol)
                     .padding(.leading, 8)
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    expandedSymbol = expandedSymbol == holding.symbol ? nil : holding.symbol
+                // List의 암시적 셀 애니메이션 차단
+                var transaction = Transaction()
+                transaction.animation = nil
+                withTransaction(transaction) {
+                    expandedSymbol = isExpanded ? nil : holding.symbol
                 }
             }
 
             // Expanded: lot details
-            if expandedSymbol == holding.symbol {
+            if isExpanded {
                 lotDetails(holding)
             }
         }
@@ -344,7 +349,6 @@ struct PortfolioView: View {
             }
         }
         .padding(.leading, 4)
-        .transition(.opacity)
     }
 
     // MARK: - Empty States
@@ -435,6 +439,9 @@ private struct AddLotSheet: View {
     @State private var symbol = ""
     @State private var shares = ""
     @State private var costPerShare = ""
+    @State private var searchVM = StockSearchViewModel()
+    @State private var selectedResult: SearchResult?
+    @FocusState private var isSymbolFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -442,6 +449,68 @@ private struct AddLotSheet: View {
                 Section("종목") {
                     TextField("티커 (예: AAPL)", text: $symbol)
                         .autocorrectionDisabled()
+                        .textInputAutocapitalization(.characters)
+                        .focused($isSymbolFocused)
+                        .onChange(of: symbol) {
+                            searchVM.query = symbol
+                            searchVM.search()
+                            // 직접 입력으로 변경 시 선택 해제
+                            if selectedResult?.symbol != symbol.uppercased() {
+                                selectedResult = nil
+                            }
+                        }
+
+                    // 검색 결과 미리보기
+                    if isSymbolFocused && !searchVM.results.isEmpty {
+                        ForEach(searchVM.results.prefix(5)) { result in
+                            Button {
+                                symbol = result.symbol
+                                selectedResult = result
+                                isSymbolFocused = false
+                            } label: {
+                                HStack(spacing: 8) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(result.symbol)
+                                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                            .foregroundStyle(.primary)
+                                        Text(result.name)
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer()
+                                    if let exchange = result.exchange {
+                                        Text(exchange)
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if searchVM.isSearching {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .controlSize(.small)
+                            Spacer()
+                        }
+                    }
+
+                    // 선택된 종목 표시
+                    if let selected = selectedResult {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.system(size: 14))
+                            Text(selected.name)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
                 }
 
                 Section("매수 정보") {
@@ -478,13 +547,14 @@ private struct AddLotSheet: View {
         guard let sharesVal = Double(shares),
               let costVal = Double(costPerShare) else { return }
 
+        let ticker = symbol.trimmingCharacters(in: .whitespaces).uppercased()
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let today = formatter.string(from: Date())
 
         Task {
             await portfolioService.addLot(
-                symbol: symbol,
+                symbol: ticker,
                 date: today,
                 shares: sharesVal,
                 costPerShare: costVal

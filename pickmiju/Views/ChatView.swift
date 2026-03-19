@@ -8,38 +8,41 @@ struct ChatView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Messages
-                ScrollViewReader { scrollProxy in
-                    ScrollView {
-                        LazyVStack(spacing: 2) {
-                            ForEach(chatService.messages) { msg in
-                                MessageBubble(
-                                    message: msg,
-                                    isMe: msg.isFromSameUser
-                                )
-                                .id(msg.id)
-                            }
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        ForEach(chatService.messages) { msg in
+                            MessageBubble(
+                                message: msg,
+                                isMe: msg.isFromSameUser
+                            )
+                            .id(msg.id)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
                     }
-                    .onTapGesture {
-                        isInputFocused = false
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                }
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    VStack(spacing: 0) {
+                        Divider()
+                        inputBar
                     }
-                    .onChange(of: chatService.messages.count) {
-                        if let last = chatService.messages.last {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                scrollProxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
+                    .background(.bar)
+                }
+                .onTapGesture {
+                    isInputFocused = false
+                }
+                .onChange(of: chatService.messages.count) {
+                    scrollToBottom(scrollProxy)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
+                    let duration = notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double ?? 0.25
+                    withAnimation(.easeOut(duration: duration)) {
+                        scrollToBottom(scrollProxy)
                     }
                 }
-
-                Divider()
-
-                // Input bar
-                inputBar
             }
             .navigationTitle("채팅")
             .navigationBarTitleDisplayMode(.inline)
@@ -80,6 +83,12 @@ struct ChatView: View {
             .onDisappear {
                 chatService.isVisible = false
             }
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        if let last = chatService.messages.last {
+            proxy.scrollTo(last.id, anchor: .bottom)
         }
     }
 

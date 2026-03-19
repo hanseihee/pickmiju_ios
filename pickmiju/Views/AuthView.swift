@@ -29,8 +29,10 @@ struct LoginView: View {
                     }
                 } label: {
                     HStack(spacing: 10) {
-                        Image(systemName: "g.circle.fill")
-                            .font(.system(size: 20))
+                        Image("GoogleLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 20, height: 20)
                         Text("Google로 로그인")
                             .font(.system(size: 16, weight: .semibold))
                     }
@@ -130,8 +132,11 @@ struct ProfileView: View {
             Button {
                 Task { try? await authService.signInWithGoogle() }
             } label: {
-                HStack {
-                    Image(systemName: "g.circle.fill")
+                HStack(spacing: 8) {
+                    Image("GoogleLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
                     Text("Google로 로그인")
                 }
             }

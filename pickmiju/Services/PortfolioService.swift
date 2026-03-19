@@ -99,17 +99,27 @@ final class PortfolioService {
 
     // MARK: - Calculations
 
-    func calculateSummary(prices: [String: StockPrice]) -> PortfolioSummaryData {
+    func calculateSummary(prices: [String: StockPrice], watchlistOrder: [String] = []) -> PortfolioSummaryData {
         guard !lots.isEmpty else { return .empty }
 
-        // Group lots by symbol, preserving insertion order from Supabase
-        var orderedSymbols: [String] = []
+        // Group lots by symbol
+        var symbolSet: Set<String> = []
         var grouped: [String: [StockLot]] = [:]
         for lot in lots {
-            if grouped[lot.symbol] == nil {
-                orderedSymbols.append(lot.symbol)
-            }
+            symbolSet.insert(lot.symbol)
             grouped[lot.symbol, default: []].append(lot)
+        }
+
+        // 관심종목 순서 기준 정렬, 관심종목에 없는 심볼은 뒤에 추가
+        var orderedSymbols: [String] = []
+        for ticker in watchlistOrder {
+            if symbolSet.contains(ticker) {
+                orderedSymbols.append(ticker)
+                symbolSet.remove(ticker)
+            }
+        }
+        for remaining in symbolSet.sorted() {
+            orderedSymbols.append(remaining)
         }
 
         var holdings: [StockHolding] = []

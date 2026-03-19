@@ -22,7 +22,12 @@ final class WatchlistStore {
     static let requiredTickers = [
         "KRW=X",
         "^GSPC", "^IXIC", "^DJI",
+        "ES=F", "NQ=F", "YM=F",
     ]
+
+    // Index vs Futures symbol groups for carousel switching
+    static let indexTickers = ["^GSPC", "^IXIC", "^DJI"]
+    static let futuresTickers = ["ES=F", "NQ=F", "YM=F"]
 
     /// All tickers = user tickers + required tickers (deduped)
     var allTickers: [String] {
@@ -123,6 +128,7 @@ final class WatchlistStore {
 
             if !response.tickers.isEmpty {
                 tickers = response.tickers
+                saveLocal()
             } else {
                 // No cloud data — upload local watchlist
                 let localTickers = tickers.isEmpty ? Self.defaultTickers : tickers
