@@ -34,7 +34,8 @@ struct StockRowView: View {
                 open: stock.openPrice,
                 high: stock.dayHigh,
                 low: stock.dayLow,
-                close: stock.regularMarketPrice != 0 ? stock.regularMarketPrice : stock.price
+                close: stock.regularMarketPrice != 0 ? stock.regularMarketPrice : stock.price,
+                previousClose: stock.previousClose
             )
             .frame(width: 14, height: 32)
             .padding(.trailing, 8)
@@ -63,6 +64,10 @@ struct StockRowView: View {
                     Text(formatExtendedPrice(stock.extendedHoursPrice))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(changeTextColor(stock.extendedHoursChangePercent))
+                } else if stock.regularMarketChange != 0 {
+                    Text(formatRegularChange(stock.regularMarketChange))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(changeTextColor(stock.regularMarketChangePercent))
                 }
             }
             .frame(width: 115, alignment: .trailing)
@@ -145,6 +150,20 @@ struct StockRowView: View {
         case 2: return .purple
         default: return .secondary
         }
+    }
+
+    private func formatRegularChange(_ change: Double) -> String {
+        let prefix = change >= 0 ? "+" : ""
+        if isKRW && !isForex && krwRate > 0 {
+            let krwChange = change * krwRate
+            let formatter = NumberFormatter()
+            formatter.numberStyle = .decimal
+            formatter.maximumFractionDigits = 0
+            return "\(prefix)₩\(formatter.string(from: NSNumber(value: abs(krwChange))) ?? "0")"
+        }
+        let hint = stock.priceHint
+        if abs(change) >= 1000 { return "\(prefix)\(String(format: "%.\(min(hint, 2))f", change))" }
+        return "\(prefix)\(String(format: "%.\(hint)f", change))"
     }
 
     private func formatExtendedPrice(_ price: Double) -> String {

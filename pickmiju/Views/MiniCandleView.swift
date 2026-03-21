@@ -6,48 +6,55 @@ struct MiniCandleView: View {
     let high: Double
     let low: Double
     let close: Double
+    let previousClose: Double
 
-    private var isUp: Bool { close >= open }
+    // 전일 종가 대비 색상 (변동% 배지와 동일 기준)
+    private var isUp: Bool { close >= previousClose }
     private var candleColor: Color { isUp ? .green : .red }
 
     var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
+        Canvas { context, size in
+            let w = size.width
+            let h = size.height
             let range = high - low
 
-            if range > 0 && high > 0 {
-                let bodyTop = isUp ? close : open
-                let bodyBottom = isUp ? open : close
-                let bodyRange = max(bodyTop - bodyBottom, range * 0.02) // 최소 몸통 높이
-
-                // 좌표 변환: 가격 → y (위가 high, 아래가 low)
-                let wickTopY = 0.0
-                let wickBottomY = h
-                let bodyTopY = (high - bodyTop) / range * h
-                let bodyBottomY = (high - (bodyTop - bodyRange)) / range * h
-
-                // 꼬리 (심지)
-                Path { path in
-                    path.move(to: CGPoint(x: w / 2, y: wickTopY))
-                    path.addLine(to: CGPoint(x: w / 2, y: wickBottomY))
-                }
-                .stroke(candleColor, lineWidth: 1)
-
-                // 몸통
-                let bodyH = max(bodyBottomY - bodyTopY, 1)
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(candleColor)
-                    .frame(width: max(w * 0.6, 4), height: bodyH)
-                    .position(x: w / 2, y: bodyTopY + bodyH / 2)
-            } else {
+            guard range > 0, high > 0 else {
                 // 데이터 없음: 가로선
-                Path { path in
-                    path.move(to: CGPoint(x: 2, y: h / 2))
-                    path.addLine(to: CGPoint(x: w - 2, y: h / 2))
-                }
-                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                var line = Path()
+                line.move(to: CGPoint(x: 2, y: h / 2))
+                line.addLine(to: CGPoint(x: w - 2, y: h / 2))
+                context.stroke(line, with: .color(.secondary.opacity(0.3)), lineWidth: 1)
+                return
             }
+
+            let bodyTop = max(open, close)
+            let bodyBottom = min(open, close)
+            let bodyRange = max(bodyTop - bodyBottom, range * 0.02)
+
+            let bodyTopY = (high - bodyTop) / range * h
+            let bodyBottomY = bodyTopY + bodyRange / range * h
+            let bodyH = max(bodyBottomY - bodyTopY, 1)
+
+            let centerX = w / 2
+            let candleW = max(w * 0.5, 4)
+
+            // 꼬리 (심지): high ~ low
+            var wick = Path()
+            wick.move(to: CGPoint(x: centerX, y: 0))
+            wick.addLine(to: CGPoint(x: centerX, y: h))
+            context.stroke(wick, with: .color(candleColor), lineWidth: 1)
+
+            // 몸통: open ~ close
+            let bodyRect = CGRect(
+                x: centerX - candleW / 2,
+                y: bodyTopY,
+                width: candleW,
+                height: bodyH
+            )
+            context.fill(
+                Path(roundedRect: bodyRect, cornerRadius: 1),
+                with: .color(candleColor)
+            )
         }
     }
 }
