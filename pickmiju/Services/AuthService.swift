@@ -82,6 +82,21 @@ final class AuthService {
         }
     }
 
+    // MARK: - Delete Account
+
+    func deleteAccount() async throws {
+        guard user != nil else {
+            throw AuthServiceError.notLoggedIn
+        }
+
+        // Supabase RPC로 사용자 데이터 및 계정 삭제
+        try await supabase.rpc("delete_user").execute()
+
+        // 로컬 세션 정리
+        try await supabase.auth.signOut()
+        user = nil
+    }
+
     // MARK: - Handle URL Callback
 
     func handleURL(_ url: URL) async {
@@ -118,10 +133,12 @@ final class AuthService {
 
 enum AuthServiceError: LocalizedError {
     case invalidCredential
+    case notLoggedIn
 
     var errorDescription: String? {
         switch self {
         case .invalidCredential: return "유효하지 않은 인증 정보입니다"
+        case .notLoggedIn: return "로그인이 필요합니다"
         }
     }
 }

@@ -85,7 +85,6 @@ struct LoginView: View {
 
 struct ProfileView: View {
     let authService: AuthService
-    @State private var showDeleteAlert = false
 
     var body: some View {
         if authService.isLoggedIn {

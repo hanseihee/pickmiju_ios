@@ -22,22 +22,37 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("주식", systemImage: "chart.line.uptrend.xyaxis", value: 0) {
-                StockListView(viewModel: viewModel, settings: settings)
+                VStack(spacing: 0) {
+                    StockListView(viewModel: viewModel, settings: settings)
+                        .frame(maxHeight: .infinity)
+                    BannerAdView()
+                        .padding(.bottom, 4)
+                }
             }
 
             Tab("포트폴리오", systemImage: "chart.pie", value: 1) {
-                PortfolioView(
-                    portfolioService: portfolioService,
-                    authService: authService,
-                    prices: viewModel.quotes,
-                    krwRate: viewModel.krwRate,
-                    watchlistOrder: watchlist.tickers,
-                    settings: settings
-                )
+                VStack(spacing: 0) {
+                    PortfolioView(
+                        portfolioService: portfolioService,
+                        authService: authService,
+                        prices: viewModel.quotes,
+                        krwRate: viewModel.krwRate,
+                        watchlistOrder: watchlist.tickers,
+                        settings: settings
+                    )
+                    .frame(maxHeight: .infinity)
+                    BannerAdView()
+                        .padding(.bottom, 4)
+                }
             }
 
             Tab(value: 2) {
-                ChatView(chatService: chatService)
+                VStack(spacing: 0) {
+                    ChatView(chatService: chatService)
+                        .frame(maxHeight: .infinity)
+                    BannerAdView()
+                        .padding(.bottom, 4)
+                }
             } label: {
                 Label {
                     Text("채팅")
@@ -48,11 +63,21 @@ struct MainTabView: View {
             }
 
             Tab("뉴스", systemImage: "newspaper", value: 3) {
-                NewsListView()
+                VStack(spacing: 0) {
+                    NewsListView()
+                        .frame(maxHeight: .infinity)
+                    BannerAdView()
+                        .padding(.bottom, 4)
+                }
             }
 
             Tab("설정", systemImage: "gearshape", value: 4) {
-                SettingsView(authService: authService, settings: settings)
+                VStack(spacing: 0) {
+                    SettingsView(authService: authService, settings: settings)
+                        .frame(maxHeight: .infinity)
+                    BannerAdView()
+                        .padding(.bottom, 4)
+                }
             }
         }
         .tint(.primary)
@@ -105,6 +130,9 @@ struct MainTabView: View {
 private struct SettingsView: View {
     let authService: AuthService
     @Bindable var settings: AppSettings
+    @State private var showDeleteAlert = false
+    @State private var isDeleting = false
+    @State private var deleteError: String?
 
     var body: some View {
         NavigationStack {
@@ -139,9 +167,54 @@ private struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                if authService.isLoggedIn {
+                    Section {
+                        Button("회원탈퇴") {
+                            showDeleteAlert = true
+                        }
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .listRowBackground(Color.clear)
+                    }
+                }
             }
             .navigationTitle("설정")
             .navigationBarTitleDisplayMode(.inline)
+            .alert("회원탈퇴", isPresented: $showDeleteAlert) {
+                Button("취소", role: .cancel) { }
+                Button("탈퇴하기", role: .destructive) {
+                    Task {
+                        isDeleting = true
+                        do {
+                            try await authService.deleteAccount()
+                        } catch {
+                            deleteError = error.localizedDescription
+                        }
+                        isDeleting = false
+                    }
+                }
+            } message: {
+                Text("정말 탈퇴하시겠습니까?\n모든 데이터가 삭제되며 복구할 수 없습니다.")
+            }
+            .alert("탈퇴 실패", isPresented: .init(
+                get: { deleteError != nil },
+                set: { if !$0 { deleteError = nil } }
+            )) {
+                Button("확인", role: .cancel) { }
+            } message: {
+                Text(deleteError ?? "")
+            }
+            .overlay {
+                if isDeleting {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    ProgressView("탈퇴 처리 중...")
+                        .padding(24)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+                }
+            }
         }
     }
 }
