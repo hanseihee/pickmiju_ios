@@ -7,7 +7,8 @@ struct StockListView: View {
     @State private var showSearch = false
     @State private var marketInfo = MarketInfo.current()
     @Environment(\.scenePhase) private var scenePhase
-    private let marketTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State private var timerSubscription: Cancellable?
+    private let marketTimer = Timer.publish(every: 1, on: .main, in: .common)
 
     var body: some View {
         NavigationStack {
@@ -77,6 +78,11 @@ struct StockListView: View {
             }
             .onAppear {
                 viewModel.onAppear()
+                timerSubscription = marketTimer.connect()
+            }
+            .onDisappear {
+                timerSubscription?.cancel()
+                timerSubscription = nil
             }
             .onReceive(marketTimer) { _ in
                 marketInfo = MarketInfo.current()
@@ -85,8 +91,13 @@ struct StockListView: View {
                 switch newPhase {
                 case .active:
                     viewModel.onEnterForeground()
+                    if timerSubscription == nil {
+                        timerSubscription = marketTimer.connect()
+                    }
                 case .background:
                     viewModel.onEnterBackground()
+                    timerSubscription?.cancel()
+                    timerSubscription = nil
                 default:
                     break
                 }

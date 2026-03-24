@@ -51,6 +51,10 @@ struct StockDetailView: View {
             await loadDetail()
             startWebSocket()
         }
+        .onDisappear {
+            webSocket.unsubscribe([symbol])
+            webSocket.disconnect()
+        }
     }
 
     // MARK: - Header Section

@@ -2,7 +2,8 @@ import SwiftUI
 import Auth
 
 struct MainTabView: View {
-    @State private var watchlist = WatchlistStore()
+    @State private var watchlist: WatchlistStore
+    @State private var stockViewModel: StockListViewModel
     @State private var authService = AuthService()
     @State private var chatService = ChatService()
     @State private var portfolioService = PortfolioService()
@@ -10,20 +11,17 @@ struct MainTabView: View {
     @State private var selectedTab = 0
     @Environment(\.scenePhase) private var scenePhase
 
-    // Single shared ViewModel — created once, shared across tabs
-    @State private var stockViewModel: StockListViewModel?
-
-    private var viewModel: StockListViewModel {
-        if let existing = stockViewModel { return existing }
-        let vm = StockListViewModel(watchlist: watchlist)
-        return vm
+    init() {
+        let wl = WatchlistStore()
+        _watchlist = State(initialValue: wl)
+        _stockViewModel = State(initialValue: StockListViewModel(watchlist: wl))
     }
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("주식", systemImage: "chart.line.uptrend.xyaxis", value: 0) {
                 VStack(spacing: 0) {
-                    StockListView(viewModel: viewModel, settings: settings)
+                    StockListView(viewModel: stockViewModel, settings: settings)
                         .frame(maxHeight: .infinity)
                     BannerAdView()
                         .padding(.bottom, 4)
@@ -35,8 +33,8 @@ struct MainTabView: View {
                     PortfolioView(
                         portfolioService: portfolioService,
                         authService: authService,
-                        prices: viewModel.quotes,
-                        krwRate: viewModel.krwRate,
+                        prices: stockViewModel.quotes,
+                        krwRate: stockViewModel.krwRate,
                         watchlistOrder: watchlist.tickers,
                         settings: settings
                     )
@@ -82,15 +80,10 @@ struct MainTabView: View {
         }
         .tint(.primary)
         .preferredColorScheme(settings.theme.colorScheme)
-        .onAppear {
-            if stockViewModel == nil {
-                stockViewModel = StockListViewModel(watchlist: watchlist)
-            }
-        }
         .onChange(of: portfolioService.lots) {
             // 포트폴리오 심볼을 ViewModel에 동기화하고 전체 리로드
-            viewModel.portfolioSymbols = portfolioService.symbols
-            viewModel.reloadAllSymbols()
+            stockViewModel.portfolioSymbols = portfolioService.symbols
+            stockViewModel.reloadAllSymbols()
         }
         .onChange(of: authService.user) { oldUser, newUser in
             if let newUser {
@@ -100,13 +93,13 @@ struct MainTabView: View {
             } else if oldUser != nil {
                 watchlist.onUserSignOut()
                 portfolioService.onUserSignOut()
-                viewModel.portfolioSymbols = []
+                stockViewModel.portfolioSymbols = []
             }
         }
         .onChange(of: watchlist.tickers) { oldTickers, newTickers in
             // 관심종목 변경 시 전체 리로드 (포트폴리오 심볼 포함)
             if Set(oldTickers) != Set(newTickers) {
-                viewModel.reloadAllSymbols()
+                stockViewModel.reloadAllSymbols()
             }
         }
         .onChange(of: selectedTab) { _, newTab in

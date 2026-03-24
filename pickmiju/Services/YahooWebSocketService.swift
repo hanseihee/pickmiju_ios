@@ -98,28 +98,35 @@ final class YahooWebSocketService {
 
         for (ticker, apiData) in initialPrices {
             if let existing = prices[ticker] {
-                // Merge: keep WebSocket real-time data, fill gaps from API
-                // Matches web logic: existing.field || apiData.field
+                // Merge: API data is authoritative for day-specific fields
+                // (they reset daily, so stale cache from yesterday must be overwritten).
+                // WebSocket-only fields (metadata) are filled from cache when API is empty.
                 var merged = existing
-                if merged.price == 0 { merged.price = apiData.price }
+                // Day-specific fields — always use API data (resets each trading day)
+                merged.price = apiData.price != 0 ? apiData.price : existing.price
+                merged.previousClose = apiData.previousClose != 0 ? apiData.previousClose : existing.previousClose
+                merged.dayHigh = apiData.dayHigh != 0 ? apiData.dayHigh : existing.dayHigh
+                merged.dayLow = apiData.dayLow != 0 ? apiData.dayLow : existing.dayLow
+                merged.dayVolume = apiData.dayVolume != 0 ? apiData.dayVolume : existing.dayVolume
+                merged.openPrice = apiData.openPrice != 0 ? apiData.openPrice : existing.openPrice
+                merged.change = apiData.change != 0 ? apiData.change : existing.change
+                merged.changePercent = apiData.changePercent != 0 ? apiData.changePercent : existing.changePercent
+                merged.marketHours = apiData.marketHours
+                merged.time = apiData.time != 0 ? apiData.time : existing.time
+                // Metadata — fill from API only if cache is empty
                 if merged.shortName.isEmpty || merged.shortName == ticker { merged.shortName = apiData.shortName }
                 if merged.currency.isEmpty { merged.currency = apiData.currency }
                 if merged.exchange.isEmpty { merged.exchange = apiData.exchange }
-                if merged.previousClose == 0 { merged.previousClose = apiData.previousClose }
-                if merged.dayHigh == 0 { merged.dayHigh = apiData.dayHigh }
-                if merged.dayLow == 0 { merged.dayLow = apiData.dayLow }
-                if merged.dayVolume == 0 { merged.dayVolume = apiData.dayVolume }
-                if merged.openPrice == 0 { merged.openPrice = apiData.openPrice }
                 if merged.priceHint == 0 { merged.priceHint = apiData.priceHint != 0 ? apiData.priceHint : 2 }
-                // Regular market data - prefer REST API as it's more complete
-                if merged.regularMarketPrice == 0 { merged.regularMarketPrice = apiData.regularMarketPrice }
-                if merged.regularMarketChange == 0 { merged.regularMarketChange = apiData.regularMarketChange }
-                if merged.regularMarketChangePercent == 0 { merged.regularMarketChangePercent = apiData.regularMarketChangePercent }
+                // Regular market data — always use API (more complete than WebSocket)
+                merged.regularMarketPrice = apiData.regularMarketPrice != 0 ? apiData.regularMarketPrice : existing.regularMarketPrice
+                merged.regularMarketChange = apiData.regularMarketChange != 0 ? apiData.regularMarketChange : existing.regularMarketChange
+                merged.regularMarketChangePercent = apiData.regularMarketChangePercent != 0 ? apiData.regularMarketChangePercent : existing.regularMarketChangePercent
                 // Extended hours - only include if NOT in regular market hours
                 if apiData.marketHours != 1 {
-                    if merged.extendedHoursPrice == 0 { merged.extendedHoursPrice = apiData.extendedHoursPrice }
-                    if merged.extendedHoursChange == 0 { merged.extendedHoursChange = apiData.extendedHoursChange }
-                    if merged.extendedHoursChangePercent == 0 { merged.extendedHoursChangePercent = apiData.extendedHoursChangePercent }
+                    merged.extendedHoursPrice = apiData.extendedHoursPrice != 0 ? apiData.extendedHoursPrice : existing.extendedHoursPrice
+                    merged.extendedHoursChange = apiData.extendedHoursChange != 0 ? apiData.extendedHoursChange : existing.extendedHoursChange
+                    merged.extendedHoursChangePercent = apiData.extendedHoursChangePercent != 0 ? apiData.extendedHoursChangePercent : existing.extendedHoursChangePercent
                 } else {
                     merged.extendedHoursPrice = 0
                     merged.extendedHoursChange = 0
