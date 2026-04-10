@@ -116,6 +116,13 @@ struct StockListView: View {
                     .listRowSeparator(.hidden)
             }
 
+            // Trump SNS Banner
+            Section {
+                TrumpBannerView()
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                    .listRowSeparator(.hidden)
+            }
+
             // Watchlist
             Section {
                 ForEach(viewModel.stockList) { stock in
