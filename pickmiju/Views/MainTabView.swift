@@ -85,12 +85,12 @@ struct MainTabView: View {
             stockViewModel.portfolioSymbols = portfolioService.symbols
             stockViewModel.reloadAllSymbols()
         }
-        .onChange(of: authService.user) { oldUser, newUser in
-            if let newUser {
-                let uid = newUser.id.uuidString
+        .onChange(of: authService.user?.id) { oldId, newId in
+            if let newId {
+                let uid = newId.uuidString
                 watchlist.onUserSignIn(userId: uid)
                 portfolioService.onUserSignIn(userId: uid)
-            } else if oldUser != nil {
+            } else if oldId != nil {
                 watchlist.onUserSignOut()
                 portfolioService.onUserSignOut()
                 stockViewModel.portfolioSymbols = []

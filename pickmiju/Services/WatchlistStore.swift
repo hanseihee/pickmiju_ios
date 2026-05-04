@@ -2,12 +2,15 @@ import Foundation
 import Supabase
 
 @Observable
+@MainActor
 final class WatchlistStore {
     private(set) var tickers: [String] = []
     private(set) var isLoaded = false
 
     private let storageKey = "stock-watchlist"
     private var currentUserId: String?
+    private var saveTask: Task<Void, Never>?
+    private let saveDebounceNanos: UInt64 = 100_000_000 // 0.1s — coalesce rapid taps
 
     private static let defaultTickers = [
         "SPY", "QQQ", "DIA", "IWM",
@@ -61,23 +64,27 @@ final class WatchlistStore {
 
     // MARK: - CRUD Operations
 
+    /// 추가는 즉시 저장 (검색에서 바로 호출, 편집 모드 외부)
     func addTicker(_ symbol: String) {
         let upper = symbol.uppercased()
         guard !tickers.contains(upper) else { return }
         tickers.append(upper)
-        save()
+        saveLocal()
+        scheduleCloudSave()
     }
 
+    /// 삭제는 로컬만 — 완료 시 commitChanges()로 cloud 저장
     func removeTicker(_ symbol: String) {
         let upper = symbol.uppercased()
         tickers.removeAll { $0 == upper }
-        save()
+        saveLocal()
     }
 
     func hasTicker(_ symbol: String) -> Bool {
         tickers.contains(symbol.uppercased())
     }
 
+    /// 이동은 로컬만 — 완료 시 commitChanges()로 cloud 저장
     func reorderTickers(from source: IndexSet, to destination: Int) {
         var items = tickers
         let movedItems = source.sorted().map { items[$0] }
@@ -87,12 +94,18 @@ final class WatchlistStore {
         let adjustedDestination = destination - source.filter { $0 < destination }.count
         items.insert(contentsOf: movedItems, at: min(adjustedDestination, items.count))
         tickers = items
-        save()
+        saveLocal()
     }
 
     func resetToDefaults() {
         tickers = Self.defaultTickers
-        save()
+        saveLocal()
+        scheduleCloudSave()
+    }
+
+    /// 편집 모드 종료(완료 버튼) 시 호출 — pending 변경사항을 cloud에 commit
+    func commitChanges() {
+        scheduleCloudSave()
     }
 
     // MARK: - Local Persistence
@@ -153,22 +166,20 @@ final class WatchlistStore {
         do {
             try await supabase
                 .from("user_watchlist")
-                .upsert(row)
+                .upsert(row, onConflict: "user_id")
                 .execute()
         } catch {
-            print("[Watchlist] Cloud save error: \(error)")
+            NSLog("[Watchlist] Cloud save error: \(error)")
         }
     }
 
-    private func save() {
-        // Always save locally
-        saveLocal()
-
-        // Also save to cloud if logged in
-        if let userId = currentUserId {
-            Task {
-                await saveToCloud(userId: userId, tickerList: tickers)
-            }
+    private func scheduleCloudSave() {
+        guard let userId = currentUserId else { return }
+        saveTask?.cancel()
+        saveTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: self?.saveDebounceNanos ?? 100_000_000)
+            guard let self, !Task.isCancelled else { return }
+            await self.saveToCloud(userId: userId, tickerList: self.tickers)
         }
     }
 }

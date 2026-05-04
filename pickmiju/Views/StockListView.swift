@@ -40,7 +40,11 @@ struct StockListView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 12) {
                         Button {
+                            let wasEditing = viewModel.isEditMode
                             withAnimation { viewModel.isEditMode.toggle() }
+                            if wasEditing {
+                                viewModel.watchlist.commitChanges()
+                            }
                         } label: {
                             Text(viewModel.isEditMode ? "완료" : "편집")
                                 .font(.system(size: 14))
