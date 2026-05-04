@@ -2,13 +2,14 @@ import SwiftUI
 
 struct NewsListView: View {
     @State private var newsService = NewsService()
+    @State private var briefService = DailyBriefService()
 
     var body: some View {
         NavigationStack {
             Group {
-                if newsService.isLoading && newsService.news.isEmpty {
+                if newsService.isLoading && newsService.news.isEmpty && briefService.brief == nil {
                     loadingView
-                } else if newsService.news.isEmpty {
+                } else if newsService.news.isEmpty && briefService.brief == nil {
                     emptyView
                 } else {
                     newsList
@@ -19,13 +20,18 @@ struct NewsListView: View {
             .navigationDestination(for: NewsRecord.self) { record in
                 NewsDetailView(news: record)
             }
+            .navigationDestination(for: DailyBrief.self) { brief in
+                DailyBriefDetailView(brief: brief)
+            }
             .refreshable {
                 await newsService.refresh()
+                await briefService.refresh()
             }
             .task {
                 if newsService.news.isEmpty {
                     await newsService.loadNews()
                 }
+                await briefService.loadLatest()
             }
         }
     }
@@ -34,6 +40,15 @@ struct NewsListView: View {
 
     private var newsList: some View {
         List {
+            if let brief = briefService.brief {
+                NavigationLink(value: brief) {
+                    DailyBriefCardView(brief: brief)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 12, trailing: 16))
+                .listRowSeparator(.hidden)
+                .buttonStyle(.plain)
+            }
+
             ForEach(newsService.news) { record in
                 NavigationLink(value: record) {
                     NewsRowView(news: record)
